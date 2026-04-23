@@ -23,11 +23,13 @@
         "laravel/pail": "^1.2.5",
         "laravel/pint": "^1.27",
         "laravel/sail": "^1.57",
+        "larastan/larastan": "^3.8",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.9.3",
         "nunomaduro/pao": "^1.0.3",
         "pestphp/pest": "^4.6",
-        "pestphp/pest-plugin-laravel": "^4.1"
+        "pestphp/pest-plugin-laravel": "^4.1",
+        "phpstan/phpstan": "^2.1"
     },
     "autoload": {
         "psr-4": {
@@ -55,11 +57,15 @@
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
         ],
         "lint": [
-            "pint --parallel"
+            "@php vendor/bin/pint --ansi",
+            "@php vendor/bin/phpstan analyse --verbose --ansi --memory-limit=1G",
+            "@composer audit"
         ],
         "lint:check": [
             "pint --parallel --test"
         ],
+        "analyse": "vendor/bin/phpstan analyse --memory-limit=1G",
+        "format": "vendor/bin/pint",
         "ci:check": [
             "Composer\\Config::disableProcessTimeout",
             "npm run lint:check",
