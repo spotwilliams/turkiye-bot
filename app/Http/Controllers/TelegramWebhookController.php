@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\BuildPendingTasksReport;
 use App\Jobs\ProcessSchoolMessage;
 use App\Models\Message;
 use App\Services\TelegramService;
@@ -10,7 +11,10 @@ use Illuminate\Http\Request;
 
 class TelegramWebhookController extends Controller
 {
-    public function __construct(private readonly TelegramService $telegram) {}
+    public function __construct(
+        private readonly TelegramService $telegram,
+        private readonly BuildPendingTasksReport $pendingTasksReport,
+    ) {}
 
     public function handle(Request $request): JsonResponse
     {
@@ -29,6 +33,13 @@ class TelegramWebhookController extends Controller
         $chatId = (int) $chatId;
         $messageId = (int) $messageId;
 
+        if ($this->isCommand($messageText, '/pending')) {
+            $report = $this->pendingTasksReport->execute($chatId);
+            $this->telegram->sendMessage($chatId, $report);
+
+            return response()->json(['ok' => true, 'command' => 'pending']);
+        }
+
         $existing = Message::findByText($messageText);
 
         if ($existing !== null) {
@@ -40,5 +51,12 @@ class TelegramWebhookController extends Controller
         ProcessSchoolMessage::dispatch($messageText, $chatId, $messageId);
 
         return response()->json(['ok' => true]);
+    }
+
+    private function isCommand(string $text, string $command): bool
+    {
+        $trimmed = trim($text);
+
+        return $trimmed === $command || str_starts_with($trimmed, $command.' ');
     }
 }

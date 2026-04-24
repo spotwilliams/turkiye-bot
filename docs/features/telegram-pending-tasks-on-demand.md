@@ -89,7 +89,7 @@ Telegram chat in a format that is easy to follow, including:
 
 ## Status
 
-pending
+done
 
 ## Commits
 

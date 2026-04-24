@@ -7,6 +7,12 @@ The system translates, summarizes, extracts tasks, and sends daily reminders so 
 
 ---
 
+## Agent Commit Safety Rule
+
+Never, ever under any circumstances should the agent commit without an explicit human request.
+
+---
+
 ## User Flow
 
 ```
