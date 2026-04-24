@@ -3,18 +3,11 @@
 namespace App\Ai\Agents;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
-use Laravel\Ai\Attributes\Model;
-use Laravel\Ai\Attributes\Provider;
-use Laravel\Ai\Attributes\UseCheapestModel;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
-use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
 use Stringable;
 
-#[Provider(Lab::Anthropic)]
-#[Model('claude-sonnet-4-5')]
-#[UseCheapestModel]
 class SchoolMessageProcessor implements Agent, HasStructuredOutput
 {
     use Promptable;
@@ -25,6 +18,14 @@ class SchoolMessageProcessor implements Agent, HasStructuredOutput
     ) {
         $this->currentDate = $this->currentDate !== '' ? $this->currentDate : now()->format('Y-m-d');
         $this->dayOfWeek = $this->dayOfWeek !== '' ? $this->dayOfWeek : now()->format('l');
+    }
+
+    /**
+     * Resolve the text model from config so provider/model stay env-driven.
+     */
+    public function model(): ?string
+    {
+        return config('ai.default_text_model');
     }
 
     /**

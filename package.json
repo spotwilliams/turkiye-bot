@@ -20,7 +20,7 @@
     "lint-staged": {
         "*.{js,vue,ts}": "eslint",
         "*.{json,js,ts,vue,html}": "prettier --write",
-        "**/*.php": "composer lint"
+        "**/*.php": "sh -c 'composer lint'"
     },
     "devDependencies": {
         "@eslint/js": "^9.19.0",
