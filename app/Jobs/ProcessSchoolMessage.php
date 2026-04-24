@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Message;
+use App\Models\Task;
 use App\Services\SchoolMessageProcessor;
 use App\Services\TelegramService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -40,6 +41,7 @@ class ProcessSchoolMessage implements ShouldQueue
             ]);
 
             foreach ($result['tasks'] as $taskData) {
+                /** @var Task $task */
                 $task = $message->tasks()->create([
                     'telegram_chat_id' => $this->chatId,
                     'description' => $taskData['description'],
