@@ -83,7 +83,7 @@ Provide a dedicated command that mirrors
 
 ## Status
 
-pending
+done
 
 ## Commits
 
