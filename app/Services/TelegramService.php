@@ -39,6 +39,13 @@ class TelegramService
         return true;
     }
 
+    public function sendDuplicateAck(int $chatId, Message $existing): bool
+    {
+        $text = "ℹ️ I already received this message and it's being tracked (message #{$existing->id}).";
+
+        return $this->sendMessage($chatId, $text);
+    }
+
     public function sendProcessedConfirmation(int $chatId, Message $message, int $taskCount): bool
     {
         $text = "Message processed.\n\n";

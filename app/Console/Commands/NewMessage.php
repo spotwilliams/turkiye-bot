@@ -44,6 +44,16 @@ class NewMessage extends Command
             note(message: "Input:\n  ".str_replace("\n", "\n  ", $text), type: 'info');
         }
 
+        $existing = Message::findByText($text);
+        if ($existing !== null) {
+            if (! $json) {
+                warning("Duplicate detected — message #{$existing->id} already exists. Showing existing record (no agent call, nothing persisted).");
+            }
+            $this->render($existing->load('tasks.reminders'));
+
+            return self::SUCCESS;
+        }
+
         $provider = config('ai.default');
         $model = config('ai.default_text_model');
         $startedAt = microtime(true);

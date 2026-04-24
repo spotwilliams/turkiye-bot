@@ -80,6 +80,27 @@ test('command fails when --from-file points to missing file', function () {
     ])->assertFailed();
 });
 
+test('command detects duplicates, skips agent call, and renders existing message', function () {
+    $existing = Message::factory()->create([
+        'telegram_chat_id' => 321,
+        'original_text' => 'Merhaba',
+        'normalized_text' => Message::normalizeText('Merhaba'),
+        'normalized_text_hash' => Message::hashText('Merhaba'),
+        'summary' => 'existing summary',
+    ]);
+
+    $this->artisan('message:new', [
+        'text' => '  MERHABA  ',
+        '--chat-id' => 321,
+        '--message-id' => 1,
+    ])
+        ->expectsOutputToContain('Duplicate detected')
+        ->assertSuccessful();
+
+    expect(Message::query()->count())->toBe(1);
+    expect(Message::query()->first()->id)->toBe($existing->id);
+});
+
 test('--json prints structured output with persisted message', function () {
     fakeAgentWithTask();
 

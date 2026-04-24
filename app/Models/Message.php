@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'telegram_chat_id',
     'telegram_message_id',
     'original_text',
+    'normalized_text',
+    'normalized_text_hash',
     'translation_en',
     'translation_es',
     'summary',
@@ -32,5 +34,29 @@ class Message extends Model
     public function tasks(): HasMany
     {
         return $this->hasMany(Task::class);
+    }
+
+    /**
+     * Normalize text for duplicate detection: trim, collapse whitespace,
+     * lowercase. Deterministic and cheap.
+     */
+    public static function normalizeText(string $text): string
+    {
+        $text = trim($text);
+        $text = (string) preg_replace('/\s+/u', ' ', $text);
+
+        return mb_strtolower($text);
+    }
+
+    public static function hashText(string $text): string
+    {
+        return hash('sha256', self::normalizeText($text));
+    }
+
+    public static function findByText(string $text): ?self
+    {
+        return self::query()
+            ->where('normalized_text_hash', self::hashText($text))
+            ->first();
     }
 }

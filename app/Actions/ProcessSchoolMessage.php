@@ -24,6 +24,8 @@ class ProcessSchoolMessage
                 'telegram_chat_id' => $chatId,
                 'telegram_message_id' => $messageId,
                 'original_text' => $text,
+                'normalized_text' => Message::normalizeText($text),
+                'normalized_text_hash' => Message::hashText($text),
                 'translation_en' => $data->translation_en,
                 'translation_es' => $data->translation_es,
                 'summary' => $data->summary,
