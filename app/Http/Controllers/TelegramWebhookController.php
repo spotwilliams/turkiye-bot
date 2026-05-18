@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\BuildPendingTasksReport;
+use App\Actions\RedeemFamilyInvite;
 use App\Jobs\ProcessSchoolMessage;
 use App\Models\Message;
 use App\Services\TelegramService;
@@ -14,6 +15,7 @@ class TelegramWebhookController extends Controller
     public function __construct(
         private readonly TelegramService $telegram,
         private readonly BuildPendingTasksReport $pendingTasksReport,
+        private readonly RedeemFamilyInvite $redeemFamilyInvite,
     ) {}
 
     public function handle(Request $request): JsonResponse
@@ -34,6 +36,27 @@ class TelegramWebhookController extends Controller
         $chatId = (int) $chatId;
         $messageId = (int) $messageId;
         $fromUserId = (int) $fromUserId;
+
+        if ($this->isCommand($messageText, '/start')) {
+            $code = trim(substr(trim($messageText), strlen('/start')));
+
+            if ($code === '') {
+                $this->telegram->sendMessage($chatId, 'Usage: /start <code>');
+
+                return response()->json(['ok' => true, 'command' => 'start', 'result' => 'usage']);
+            }
+
+            $result = $this->redeemFamilyInvite->execute($code, $fromUserId, $chatId);
+
+            $reply = match ($result->status) {
+                'registered' => "Welcome, {$result->familyMember->name}! You're registered. Send school messages or use /pending and /done.",
+                'already_registered' => "You're already registered, {$result->familyMember->name}.",
+                default => 'Invite code is invalid.',
+            };
+            $this->telegram->sendMessage($chatId, $reply);
+
+            return response()->json(['ok' => true, 'command' => 'start', 'result' => $result->status]);
+        }
 
         if ($this->isCommand($messageText, '/pending')) {
             $report = $this->pendingTasksReport->execute($chatId);
