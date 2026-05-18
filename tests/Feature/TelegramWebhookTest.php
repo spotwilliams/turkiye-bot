@@ -1,7 +1,12 @@
 <?php
 
 use App\Jobs\ProcessSchoolMessage;
+use App\Models\FamilyMember;
 use Illuminate\Support\Facades\Queue;
+
+beforeEach(function () {
+    FamilyMember::factory()->create(['telegram_user_id' => 998877]);
+});
 
 test('it dispatches message processing when telegram message payload is valid', function () {
     Queue::fake();

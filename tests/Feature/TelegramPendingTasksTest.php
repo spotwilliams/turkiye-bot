@@ -1,10 +1,18 @@
 <?php
 
+use App\Models\FamilyMember;
 use App\Models\Message;
 use App\Models\Task;
 use App\Services\TelegramService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
+
+beforeEach(function () {
+    FamilyMember::factory()->create(['telegram_user_id' => 1]);
+    FamilyMember::factory()->create(['telegram_user_id' => 9]);
+    FamilyMember::factory()->create(['telegram_user_id' => 42]);
+    FamilyMember::factory()->create(['telegram_user_id' => 100]);
+});
 
 beforeEach(function () {
     Date::setTestNow(CarbonImmutable::parse('2026-04-24 09:00:00', config('app.timezone')));

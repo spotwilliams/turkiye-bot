@@ -1,10 +1,18 @@
 <?php
 
 use App\Jobs\ProcessSchoolMessage;
+use App\Models\FamilyMember;
 use App\Models\Message;
 use App\Services\TelegramService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Queue;
+
+beforeEach(function () {
+    FamilyMember::factory()->create(['telegram_user_id' => 1]);
+    FamilyMember::factory()->create(['telegram_user_id' => 2]);
+    FamilyMember::factory()->create(['telegram_user_id' => 42]);
+    FamilyMember::factory()->create(['telegram_user_id' => 555]);
+});
 
 test('duplicate message in same chat is not dispatched and gets ack', function () {
     Queue::fake();

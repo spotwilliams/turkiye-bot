@@ -1,5 +1,7 @@
 # PRD — Sender Allowlist & Rate Limit
 
+**Status: done** (implemented on branch `develop`).
+
 ## Problem Statement
 
 After the security boundary (PRD 1) confirms a request is from Telegram and

@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Actions\BuildPendingTasksReport;
 use App\Actions\RedeemFamilyInvite;
 use App\Jobs\ProcessSchoolMessage;
+use App\Models\FamilyMember;
 use App\Models\Message;
 use App\Services\TelegramService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 
 class TelegramWebhookController extends Controller
 {
@@ -57,6 +59,21 @@ class TelegramWebhookController extends Controller
 
             return response()->json(['ok' => true, 'command' => 'start', 'result' => $result->status]);
         }
+
+        if (! FamilyMember::where('telegram_user_id', $fromUserId)->exists()) {
+            if (str_starts_with(trim($messageText), '/')) {
+                $this->telegram->sendMessage($chatId, 'Not registered. Send `/start <code>` to join.');
+            }
+
+            return response()->json(['ok' => true, 'rejected' => 'unknown_sender']);
+        }
+
+        if (RateLimiter::tooManyAttempts("telegram-ingest:{$fromUserId}", 5)) {
+            $this->telegram->sendMessage($chatId, 'Slow down — try again in a moment.');
+
+            return response()->json(['ok' => true, 'rejected' => 'rate_limited']);
+        }
+        RateLimiter::hit("telegram-ingest:{$fromUserId}", 60);
 
         if ($this->isCommand($messageText, '/pending')) {
             $report = $this->pendingTasksReport->execute($chatId);
