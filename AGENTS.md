@@ -1,3 +1,9 @@
+# Agent Commit Safety Rule
+
+Never, ever under any circumstances should the agent commit without an explicit human request.
+
+---
+
 <laravel-boost-guidelines>
 === foundation rules ===
 
