@@ -9,12 +9,12 @@ test('it dispatches message processing when telegram message payload is valid', 
     $payload = [
         'message' => [
             'message_id' => 73,
-            'chat' => ['id' => 998877],
+            'chat' => ['id' => 998877], 'from' => ['id' => 998877],
             'text' => 'Okula yarin 2 A4 kagidi getiriniz.',
         ],
     ];
 
-    $response = $this->postJson(route('telegram.webhook'), $payload);
+    $response = $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'test-secret')->postJson(route('telegram.webhook'), $payload);
 
     $response->assertSuccessful()->assertJson(['ok' => true]);
 
@@ -28,7 +28,7 @@ test('it dispatches message processing when telegram message payload is valid', 
 test('it ignores payloads without a message body', function () {
     Queue::fake();
 
-    $response = $this->postJson(route('telegram.webhook'), ['update_id' => 1]);
+    $response = $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'test-secret')->postJson(route('telegram.webhook'), ['update_id' => 1]);
 
     $response->assertSuccessful()->assertJson([
         'ok' => true,

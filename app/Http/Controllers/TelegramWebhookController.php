@@ -25,13 +25,15 @@ class TelegramWebhookController extends Controller
         $messageText = data_get($payload, 'message.text');
         $chatId = data_get($payload, 'message.chat.id');
         $messageId = data_get($payload, 'message.message_id');
+        $fromUserId = data_get($payload, 'message.from.id');
 
-        if (! is_string($messageText) || ! is_numeric($chatId) || ! is_numeric($messageId)) {
+        if (! is_string($messageText) || ! is_numeric($chatId) || ! is_numeric($messageId) || ! is_numeric($fromUserId)) {
             return response()->json(['ok' => true, 'ignored' => true]);
         }
 
         $chatId = (int) $chatId;
         $messageId = (int) $messageId;
+        $fromUserId = (int) $fromUserId;
 
         if ($this->isCommand($messageText, '/pending')) {
             $report = $this->pendingTasksReport->execute($chatId);

@@ -23,10 +23,10 @@ test('duplicate message in same chat is not dispatched and gets ack', function (
         ->andReturnTrue();
     $this->app->instance(TelegramService::class, $telegram);
 
-    $response = $this->postJson(route('telegram.webhook'), [
+    $response = $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'test-secret')->postJson(route('telegram.webhook'), [
         'message' => [
             'message_id' => 99,
-            'chat' => ['id' => 555],
+            'chat' => ['id' => 555], 'from' => ['id' => 555],
             'text' => 'Yarin 350 TL getiriniz.',
         ],
     ]);
@@ -49,10 +49,10 @@ test('normalized variants (whitespace/case) are treated as duplicates', function
     $telegram->shouldReceive('sendDuplicateAck')->once()->andReturnTrue();
     $this->app->instance(TelegramService::class, $telegram);
 
-    $this->postJson(route('telegram.webhook'), [
+    $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'test-secret')->postJson(route('telegram.webhook'), [
         'message' => [
             'message_id' => 100,
-            'chat' => ['id' => 1],
+            'chat' => ['id' => 1], 'from' => ['id' => 1],
             'text' => "  YARIN   350 tl    getiriniz.\n",
         ],
     ])->assertSuccessful()->assertJson(['duplicate' => true]);
@@ -74,10 +74,10 @@ test('same text from another chat is also a duplicate (global text scope)', func
     $telegram->shouldReceive('sendDuplicateAck')->once()->andReturnTrue();
     $this->app->instance(TelegramService::class, $telegram);
 
-    $this->postJson(route('telegram.webhook'), [
+    $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'test-secret')->postJson(route('telegram.webhook'), [
         'message' => [
             'message_id' => 100,
-            'chat' => ['id' => 2],
+            'chat' => ['id' => 2], 'from' => ['id' => 2],
             'text' => 'Yarin 350 TL getiriniz.',
         ],
     ])->assertSuccessful()->assertJson(['duplicate' => true]);
@@ -88,10 +88,10 @@ test('same text from another chat is also a duplicate (global text scope)', func
 test('first unique message follows normal dispatch flow', function () {
     Queue::fake();
 
-    $this->postJson(route('telegram.webhook'), [
+    $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'test-secret')->postJson(route('telegram.webhook'), [
         'message' => [
             'message_id' => 7,
-            'chat' => ['id' => 42],
+            'chat' => ['id' => 42], 'from' => ['id' => 42],
             'text' => 'Hello world',
         ],
     ])->assertSuccessful()->assertJsonMissing(['duplicate' => true]);

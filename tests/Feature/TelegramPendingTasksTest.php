@@ -18,8 +18,8 @@ test('/pending replies with friendly empty state when no tasks', function () {
         ->andReturnTrue();
     $this->app->instance(TelegramService::class, $telegram);
 
-    $this->postJson(route('telegram.webhook'), [
-        'message' => ['message_id' => 1, 'chat' => ['id' => 42], 'text' => '/pending'],
+    $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'test-secret')->postJson(route('telegram.webhook'), [
+        'message' => ['message_id' => 1, 'chat' => ['id' => 42], 'from' => ['id' => 42], 'text' => '/pending'],
     ])->assertSuccessful()->assertJson(['command' => 'pending']);
 });
 
@@ -78,8 +78,8 @@ test('/pending groups tasks by source message and includes due/assignee', functi
         });
     $this->app->instance(TelegramService::class, $telegram);
 
-    $this->postJson(route('telegram.webhook'), [
-        'message' => ['message_id' => 1, 'chat' => ['id' => 100], 'text' => '/pending'],
+    $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'test-secret')->postJson(route('telegram.webhook'), [
+        'message' => ['message_id' => 1, 'chat' => ['id' => 100], 'from' => ['id' => 100], 'text' => '/pending'],
     ])->assertSuccessful();
 
     expect($captured)
@@ -138,8 +138,8 @@ test('/pending returns only tasks for the requesting chat', function () {
         });
     $this->app->instance(TelegramService::class, $telegram);
 
-    $this->postJson(route('telegram.webhook'), [
-        'message' => ['message_id' => 1, 'chat' => ['id' => 1], 'text' => '/pending'],
+    $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'test-secret')->postJson(route('telegram.webhook'), [
+        'message' => ['message_id' => 1, 'chat' => ['id' => 1], 'from' => ['id' => 1], 'text' => '/pending'],
     ])->assertSuccessful();
 
     expect($captured)->toContain('my task')->not->toContain('their task');
@@ -169,7 +169,7 @@ test('/pending excludes completed tasks', function () {
         ->andReturnTrue();
     $this->app->instance(TelegramService::class, $telegram);
 
-    $this->postJson(route('telegram.webhook'), [
-        'message' => ['message_id' => 1, 'chat' => ['id' => 9], 'text' => '/pending'],
+    $this->withHeader('X-Telegram-Bot-Api-Secret-Token', 'test-secret')->postJson(route('telegram.webhook'), [
+        'message' => ['message_id' => 1, 'chat' => ['id' => 9], 'from' => ['id' => 9], 'text' => '/pending'],
     ])->assertSuccessful();
 });
