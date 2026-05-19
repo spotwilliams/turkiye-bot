@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\BuildPendingTasksReport;
+use App\Actions\CompleteTask;
 use App\Actions\RedeemFamilyInvite;
 use App\Jobs\ProcessSchoolMessage;
 use App\Models\FamilyMember;
@@ -18,13 +19,11 @@ class TelegramWebhookController extends Controller
         private readonly TelegramService $telegram,
         private readonly BuildPendingTasksReport $pendingTasksReport,
         private readonly RedeemFamilyInvite $redeemFamilyInvite,
+        private readonly CompleteTask $completeTask,
     ) {}
 
     public function handle(Request $request): JsonResponse
     {
-        // TODO: use a custom Request to check/validate who is he sender of the message.
-        //      We should only accept messages from some registered telegram accounts. Not everyone can send uss messages via this bot.
-        //      Check if telegram validates who can use it. If not, implement a gate
         $payload = $request->all();
         $messageText = data_get($payload, 'message.text');
         $chatId = data_get($payload, 'message.chat.id');
@@ -40,24 +39,7 @@ class TelegramWebhookController extends Controller
         $fromUserId = (int) $fromUserId;
 
         if ($this->isCommand($messageText, '/start')) {
-            $code = trim(substr(trim($messageText), strlen('/start')));
-
-            if ($code === '') {
-                $this->telegram->sendMessage($chatId, 'Usage: /start <code>');
-
-                return response()->json(['ok' => true, 'command' => 'start', 'result' => 'usage']);
-            }
-
-            $result = $this->redeemFamilyInvite->execute($code, $fromUserId, $chatId);
-
-            $reply = match ($result->status) {
-                'registered' => "Welcome, {$result->familyMember->name}! You're registered. Send school messages or use /pending and /done.",
-                'already_registered' => "You're already registered, {$result->familyMember->name}.",
-                default => 'Invite code is invalid.',
-            };
-            $this->telegram->sendMessage($chatId, $reply);
-
-            return response()->json(['ok' => true, 'command' => 'start', 'result' => $result->status]);
+            return $this->handleStart($messageText, $fromUserId, $chatId);
         }
 
         if (! FamilyMember::where('telegram_user_id', $fromUserId)->exists()) {
@@ -68,12 +50,9 @@ class TelegramWebhookController extends Controller
             return response()->json(['ok' => true, 'rejected' => 'unknown_sender']);
         }
 
-        if (RateLimiter::tooManyAttempts("telegram-ingest:{$fromUserId}", 5)) {
-            $this->telegram->sendMessage($chatId, 'Slow down — try again in a moment.');
-
-            return response()->json(['ok' => true, 'rejected' => 'rate_limited']);
+        if ($this->isCommand($messageText, '/done')) {
+            return $this->handleDone($messageText, $chatId);
         }
-        RateLimiter::hit("telegram-ingest:{$fromUserId}", 60);
 
         if ($this->isCommand($messageText, '/pending')) {
             $report = $this->pendingTasksReport->execute($chatId);
@@ -81,6 +60,13 @@ class TelegramWebhookController extends Controller
 
             return response()->json(['ok' => true, 'command' => 'pending']);
         }
+
+        if (RateLimiter::tooManyAttempts("telegram-ingest:{$fromUserId}", 5)) {
+            $this->telegram->sendMessage($chatId, 'Slow down — try again in a moment.');
+
+            return response()->json(['ok' => true, 'rejected' => 'rate_limited']);
+        }
+        RateLimiter::hit("telegram-ingest:{$fromUserId}", 60);
 
         $existing = Message::findByText($messageText);
 
@@ -93,6 +79,52 @@ class TelegramWebhookController extends Controller
         ProcessSchoolMessage::dispatch($messageText, $chatId, $messageId);
 
         return response()->json(['ok' => true]);
+    }
+
+    private function handleStart(string $text, int $fromUserId, int $chatId): JsonResponse
+    {
+        $code = trim(substr(trim($text), strlen('/start')));
+
+        if ($code === '') {
+            $this->telegram->sendMessage($chatId, 'Usage: /start <code>');
+
+            return response()->json(['ok' => true, 'command' => 'start', 'result' => 'usage']);
+        }
+
+        $result = $this->redeemFamilyInvite->execute($code, $fromUserId, $chatId);
+
+        $reply = match ($result->status) {
+            'registered' => "Welcome, {$result->familyMember->name}! You're registered. Send school messages or use /pending and /done.",
+            'already_registered' => "You're already registered, {$result->familyMember->name}.",
+            default => 'Invite code is invalid.',
+        };
+        $this->telegram->sendMessage($chatId, $reply);
+
+        return response()->json(['ok' => true, 'command' => 'start', 'result' => $result->status]);
+    }
+
+    private function handleDone(string $text, int $chatId): JsonResponse
+    {
+        $arg = trim(substr(trim($text), strlen('/done')));
+
+        if ($arg === '' || ! ctype_digit($arg) || strlen($arg) > 18) {
+            $this->telegram->sendMessage($chatId, 'Usage: /done <task id>');
+
+            return response()->json(['ok' => true, 'command' => 'done', 'result' => 'usage']);
+        }
+
+        $result = $this->completeTask->execute((int) $arg, $chatId);
+
+        // The "not_found" branch covers both unknown ids and tasks owned by
+        // another chat. Same reply for both to avoid leaking task ownership.
+        $reply = match ($result->status) {
+            'completed' => "✅ \"{$result->task->description}\" marked done. {$result->remaining} pending.",
+            'already_done' => "Already done: \"{$result->task->description}\".",
+            default => 'Task not found.',
+        };
+        $this->telegram->sendMessage($chatId, $reply);
+
+        return response()->json(['ok' => true, 'command' => 'done', 'result' => $result->status]);
     }
 
     private function isCommand(string $text, string $command): bool

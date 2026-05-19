@@ -36,7 +36,7 @@ class BuildPendingTasksReport
 
             $lines = ["📨 {$summary}"];
             foreach ($tasksForMessage as $task) {
-                $lines[] = "  ({$task->id}) {$task->description}";
+                $lines[] = "  #{$task->id}  {$task->description}";
                 $lines[] = '    Due date: '.$this->formatDue($task, $now);
                 $lines[] = '    Who: '.$this->formatAssignee($task);
             }

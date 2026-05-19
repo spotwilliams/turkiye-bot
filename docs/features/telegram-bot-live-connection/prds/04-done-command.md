@@ -1,5 +1,7 @@
 # PRD — `/done` Command
 
+**Status: done** (implemented on branch `develop`).
+
 ## Problem Statement
 
 Users can paste school messages and receive extracted tasks plus

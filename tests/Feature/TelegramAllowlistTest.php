@@ -96,6 +96,29 @@ test('hitting the rate limit drops the message with a slow-down reply', function
     expect(end($replies))->toContain('Slow down');
 });
 
+test('cheap commands do not consume the ingest rate-limit budget', function () {
+    Queue::fake();
+
+    FamilyMember::factory()->create(['telegram_user_id' => 3333]);
+
+    $telegram = $this->mock(TelegramService::class, function (MockInterface $m) {
+        $m->shouldReceive('sendMessage')->andReturnTrue();
+    });
+    $this->app->instance(TelegramService::class, $telegram);
+
+    // Spam 20 /pending commands — none should count against ingest budget.
+    for ($i = 0; $i < 20; $i++) {
+        postWebhook('/pending', fromId: 3333, chatId: 3333)->assertSuccessful();
+    }
+
+    // The next plain-text ingest must still be accepted.
+    postWebhook('first real school message', fromId: 3333, chatId: 3333)
+        ->assertSuccessful()
+        ->assertJsonMissing(['rejected' => 'rate_limited']);
+
+    Queue::assertPushed(ProcessSchoolMessage::class, 1);
+});
+
 test('rate limit is isolated per from id', function () {
     Queue::fake();
 
