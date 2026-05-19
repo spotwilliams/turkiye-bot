@@ -76,9 +76,17 @@ class TelegramWebhookController extends Controller
             return response()->json(['ok' => true, 'duplicate' => true, 'message_id' => $existing->id]);
         }
 
-        ProcessSchoolMessage::dispatch($messageText, $chatId, $messageId);
+        $message = Message::create([
+            'telegram_chat_id' => $chatId,
+            'telegram_message_id' => $messageId,
+            'original_text' => $messageText,
+            'normalized_text' => Message::normalizeText($messageText),
+            'normalized_text_hash' => Message::hashText($messageText),
+        ]);
 
-        return response()->json(['ok' => true]);
+        ProcessSchoolMessage::dispatch($message);
+
+        return response()->json(['ok' => true, 'message_id' => $message->id]);
     }
 
     private function handleStart(string $text, int $fromUserId, int $chatId): JsonResponse

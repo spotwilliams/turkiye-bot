@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'summary',
     'raw_processor_response',
     'processed_at',
+    'failed_at',
+    'failure_reason',
 ])]
 class Message extends Model
 {
@@ -27,6 +29,7 @@ class Message extends Model
     {
         return [
             'processed_at' => 'datetime',
+            'failed_at' => 'datetime',
             'raw_processor_response' => 'array',
         ];
     }

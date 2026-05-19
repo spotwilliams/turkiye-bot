@@ -33,6 +33,9 @@ class AdminMessagesController extends Controller
                 'summary' => $message->summary,
                 'original_text' => $message->original_text,
                 'processed_at' => $message->processed_at,
+                'failed_at' => $message->failed_at,
+                'failure_reason' => $message->failure_reason,
+                'status' => $this->status($message),
                 'created_at' => $message->created_at,
                 'tasks_count' => $message->tasks_count,
             ]);
@@ -63,6 +66,9 @@ class AdminMessagesController extends Controller
                 'spanish' => $message->translation_es,
                 'summary' => $message->summary,
                 'processed_at' => $message->processed_at,
+                'failed_at' => $message->failed_at,
+                'failure_reason' => $message->failure_reason,
+                'status' => $this->status($message),
                 'created_at' => $message->created_at,
                 'tasks' => $this->serializeTasks($message),
             ],
@@ -72,6 +78,15 @@ class AdminMessagesController extends Controller
     private function ref(int $id): string
     {
         return 'MSG-'.str_pad((string) $id, 3, '0', STR_PAD_LEFT);
+    }
+
+    private function status(Message $message): string
+    {
+        if ($message->failed_at !== null) {
+            return 'failed';
+        }
+
+        return $message->processed_at !== null ? 'processed' : 'pending';
     }
 
     /**

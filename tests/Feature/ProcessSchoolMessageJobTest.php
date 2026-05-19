@@ -15,7 +15,7 @@ test('job delegates to action and sends telegram confirmation', function () {
     $action = Mockery::mock(ProcessSchoolMessageAction::class);
     $action->shouldReceive('execute')
         ->once()
-        ->with('Merhaba', 123, 99)
+        ->with(Mockery::on(fn (Message $m): bool => $m->is($message)))
         ->andReturn($message);
 
     $telegram = Mockery::mock(TelegramService::class);
@@ -24,5 +24,5 @@ test('job delegates to action and sends telegram confirmation', function () {
         ->with(123, $message, 0)
         ->andReturnTrue();
 
-    (new ProcessSchoolMessage('Merhaba', 123, 99))->handle($action, $telegram);
+    (new ProcessSchoolMessage($message))->handle($action, $telegram);
 });

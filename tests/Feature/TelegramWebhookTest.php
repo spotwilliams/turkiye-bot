@@ -24,9 +24,9 @@ test('it dispatches message processing when telegram message payload is valid', 
     $response->assertSuccessful()->assertJson(['ok' => true]);
 
     Queue::assertPushed(ProcessSchoolMessage::class, function (ProcessSchoolMessage $job): bool {
-        return $job->chatId === 998877
-            && $job->messageId === 73
-            && $job->messageText === 'Okula yarin 2 A4 kagidi getiriniz.';
+        return $job->message->telegram_chat_id === 998877
+            && $job->message->telegram_message_id === 73
+            && $job->message->original_text === 'Okula yarin 2 A4 kagidi getiriniz.';
     });
 });
 

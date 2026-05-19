@@ -32,7 +32,7 @@ const created = computed(() => fmtIstanbul(props.msg.created_at));
             <TaskCountBadge :count="msg.tasks_count" />
         </div>
         <div>
-            <ProcessedBadge :processed-at="msg.processed_at" />
+            <ProcessedBadge :status="msg.status" :processed-at="msg.processed_at" :failed-at="msg.failed_at" />
         </div>
         <span class="font-mono text-[11px] text-zinc-400">{{ created }}</span>
     </Link>

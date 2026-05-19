@@ -27,7 +27,13 @@ test('action persists message, tasks, and reminders from agent output', function
         ],
     ]);
 
-    $message = (new ProcessSchoolMessage)->execute('Değerli veliler...', 555, 777);
+    $row = Message::factory()->create([
+        'telegram_chat_id' => 555,
+        'telegram_message_id' => 777,
+        'original_text' => 'Değerli veliler...',
+        'processed_at' => null,
+    ]);
+    $message = (new ProcessSchoolMessage)->execute($row);
 
     expect($message)->toBeInstanceOf(Message::class)
         ->and($message->telegram_chat_id)->toBe(555)
@@ -51,7 +57,13 @@ test('action handles informational messages with no tasks', function () {
         ],
     ]);
 
-    $message = (new ProcessSchoolMessage)->execute('Okul yarın kapalı.', 1, 2);
+    $row = Message::factory()->create([
+        'telegram_chat_id' => 1,
+        'telegram_message_id' => 2,
+        'original_text' => 'Okul yarın kapalı.',
+        'processed_at' => null,
+    ]);
+    $message = (new ProcessSchoolMessage)->execute($row);
 
     expect($message->tasks)->toHaveCount(0);
     expect(Task::query()->count())->toBe(0);

@@ -58,11 +58,19 @@ class NewMessage extends Command
         $model = config('ai.default_text_model');
         $startedAt = microtime(true);
 
+        $row = Message::create([
+            'telegram_chat_id' => $chatId,
+            'telegram_message_id' => $messageId,
+            'original_text' => $text,
+            'normalized_text' => Message::normalizeText($text),
+            'normalized_text_hash' => Message::hashText($text),
+        ]);
+
         try {
             $message = $json
-                ? $action->execute($text, $chatId, $messageId)
+                ? $action->execute($row)
                 : spin(
-                    fn () => $action->execute($text, $chatId, $messageId),
+                    fn () => $action->execute($row),
                     "Calling {$provider}/{$model} + persisting...",
                 );
         } catch (Throwable $e) {

@@ -11,21 +11,17 @@ use Illuminate\Support\Facades\DB;
 class ProcessSchoolMessage
 {
     /**
-     * Run the AI agent on the Turkish text and persist the resulting
-     * Message, Tasks, and Reminders in a single transaction. Returns the
-     * hydrated Message with tasks.reminders loaded.
+     * Run the AI agent on the message's original text and persist
+     * translations, summary, tasks, and reminders. Updates the given
+     * Message row in place (it was created by the webhook in
+     * "processing" state). Returns the hydrated Message.
      */
-    public function execute(string $text, int $chatId, int $messageId): Message
+    public function execute(Message $message): Message
     {
-        $data = $this->callAgent($text);
+        $data = $this->callAgent($message->original_text);
 
-        return DB::transaction(function () use ($data, $text, $chatId, $messageId): Message {
-            $message = Message::create([
-                'telegram_chat_id' => $chatId,
-                'telegram_message_id' => $messageId,
-                'original_text' => $text,
-                'normalized_text' => Message::normalizeText($text),
-                'normalized_text_hash' => Message::hashText($text),
+        return DB::transaction(function () use ($data, $message): Message {
+            $message->update([
                 'translation_en' => $data->translation_en,
                 'translation_es' => $data->translation_es,
                 'summary' => $data->summary,
@@ -36,7 +32,7 @@ class ProcessSchoolMessage
             foreach ($data->tasks as $taskData) {
                 /** @var Task $task */
                 $task = $message->tasks()->create([
-                    'telegram_chat_id' => $chatId,
+                    'telegram_chat_id' => $message->telegram_chat_id,
                     'description' => $taskData->description,
                     'category' => $taskData->category,
                     'due_date' => $taskData->due_date,

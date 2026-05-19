@@ -37,8 +37,12 @@ const hasTasks = computed(() => props.message.tasks.length > 0);
         <div class="flex flex-wrap items-center gap-x-6 gap-y-1 mt-3">
             <MetaField label="Chat ID" :value="message.telegram_chat_id" mono />
             <MetaField label="Created" :value="created" mono />
-            <MetaField label="Processed">
-                <ProcessedBadge :processed-at="message.processed_at" />
+            <MetaField label="Status">
+                <ProcessedBadge
+                    :status="message.status"
+                    :processed-at="message.processed_at"
+                    :failed-at="message.failed_at"
+                />
             </MetaField>
             <MetaField label="Tasks">
                 <TaskCountBadge :count="message.tasks.length" />
@@ -47,6 +51,14 @@ const hasTasks = computed(() => props.message.tasks.length > 0);
     </div>
 
     <div class="flex-1 overflow-y-auto px-8 py-6">
+        <div
+            v-if="message.status === 'failed'"
+            class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+        >
+            <div class="font-semibold">Processing failed</div>
+            <div class="mt-1 font-mono whitespace-pre-wrap break-all">{{ message.failure_reason }}</div>
+            <div class="mt-1 text-xs text-red-600">{{ fmtIstanbul(message.failed_at) }}</div>
+        </div>
         <div class="flex gap-6 items-start flex-wrap">
             <div class="flex-1 min-w-0 space-y-4" style="min-width: 320px;">
                 <ContentCard lang="🇹🇷 Turkish" :text="message.original_turkish" />

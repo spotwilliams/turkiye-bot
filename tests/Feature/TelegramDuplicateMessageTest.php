@@ -105,7 +105,7 @@ test('first unique message follows normal dispatch flow', function () {
     ])->assertSuccessful()->assertJsonMissing(['duplicate' => true]);
 
     Queue::assertPushed(ProcessSchoolMessage::class, function (ProcessSchoolMessage $job): bool {
-        return $job->chatId === 42 && $job->messageText === 'Hello world';
+        return $job->message->telegram_chat_id === 42 && $job->message->original_text === 'Hello world';
     });
 });
 

@@ -25,6 +25,8 @@ export interface AdminTask {
     reminders: AdminReminder[];
 }
 
+export type MessageStatus = 'pending' | 'processed' | 'failed';
+
 export interface AdminMessageDetail {
     id: number;
     ref: string;
@@ -34,6 +36,9 @@ export interface AdminMessageDetail {
     spanish: string | null;
     summary: string | null;
     processed_at: string | null;
+    failed_at: string | null;
+    failure_reason: string | null;
+    status: MessageStatus;
     created_at: string | null;
     tasks: AdminTask[];
 }
@@ -148,6 +153,9 @@ export interface AdminMessageRow {
     summary: string | null;
     original_text: string;
     processed_at: string | null;
+    failed_at: string | null;
+    failure_reason: string | null;
+    status: MessageStatus;
     created_at: string | null;
     tasks_count: number;
 }

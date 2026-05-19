@@ -1,5 +1,7 @@
 # PRD — Message Failure Visibility
 
+**Status: done** (implemented on branch `develop`, uncommitted).
+
 ## Problem Statement
 
 When `ProcessSchoolMessage` exhausts its 3 retries, the exception is
