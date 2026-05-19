@@ -1,5 +1,7 @@
 # PRD — Telegram Operator Tooling
 
+**Status: done** (implemented on branch `develop`, uncommitted).
+
 ## Problem Statement
 
 To connect a real Telegram bot to the app, the operator currently has to

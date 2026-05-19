@@ -46,6 +46,58 @@ class TelegramService
         return $this->sendMessage($chatId, $text);
     }
 
+    /**
+     * @return array{ok: bool, body: array<string, mixed>}
+     */
+    public function setWebhook(string $url, ?string $secretToken = null): array
+    {
+        return $this->call('/setWebhook', array_filter([
+            'url' => $url,
+            'secret_token' => $secretToken,
+        ], fn ($v) => $v !== null && $v !== ''));
+    }
+
+    /**
+     * @return array{ok: bool, body: array<string, mixed>}
+     */
+    public function getWebhookInfo(): array
+    {
+        return $this->call('/getWebhookInfo', []);
+    }
+
+    /**
+     * @return array{ok: bool, body: array<string, mixed>}
+     */
+    public function deleteWebhook(): array
+    {
+        return $this->call('/deleteWebhook', []);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{ok: bool, body: array<string, mixed>}
+     */
+    private function call(string $endpoint, array $payload): array
+    {
+        $token = (string) config('services.telegram.bot_token');
+        if ($token === '') {
+            Log::warning('Telegram bot token missing. Skipping API call.', ['endpoint' => $endpoint]);
+
+            return ['ok' => false, 'body' => ['description' => 'TELEGRAM_BOT_TOKEN is empty.']];
+        }
+
+        $response = Http::baseUrl("https://api.telegram.org/bot{$token}")
+            ->timeout(10)
+            ->connectTimeout(5)
+            ->asJson()
+            ->post($endpoint, $payload);
+
+        /** @var array<string, mixed> $body */
+        $body = $response->json() ?? [];
+
+        return ['ok' => $response->successful() && ($body['ok'] ?? false) === true, 'body' => $body];
+    }
+
     public function sendProcessedConfirmation(int $chatId, Message $message, int $taskCount): bool
     {
         $text = "Message processed.\n\n";
