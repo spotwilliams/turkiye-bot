@@ -3,16 +3,16 @@
 namespace App\Console\Commands;
 
 use App\Models\Reminder;
-use App\Services\TelegramService;
+use App\Services\Reminders\ReminderNotifier;
 use Illuminate\Console\Command;
 
 class ProcessDueReminders extends Command
 {
     protected $signature = 'reminders:process';
 
-    protected $description = 'Send due reminder messages';
+    protected $description = 'Send due reminder messages on each task\'s resolved channel';
 
-    public function handle(TelegramService $telegram): int
+    public function handle(ReminderNotifier $notifier): int
     {
         $dueReminders = Reminder::query()
             ->with('task')
@@ -21,24 +21,19 @@ class ProcessDueReminders extends Command
             ->get();
 
         foreach ($dueReminders as $reminder) {
-            if ($reminder->task->status === 'completed') {
-                $reminder->update([
-                    'sent' => true,
-                    'sent_at' => now(),
-                ]);
+            $task = $reminder->task;
+
+            // Finished work no longer nudges on any channel, but the reminder is
+            // still retired so it is not reconsidered.
+            if ($task === null || in_array($task->status, ['completed', 'cancelled'], true)) {
+                $reminder->update(['sent' => true, 'sent_at' => now()]);
 
                 continue;
             }
 
-            $telegram->sendMessage(
-                $reminder->task->telegram_chat_id,
-                "Reminder: {$reminder->message}"
-            );
+            $notifier->sendReminder($task, $reminder->message);
 
-            $reminder->update([
-                'sent' => true,
-                'sent_at' => now(),
-            ]);
+            $reminder->update(['sent' => true, 'sent_at' => now()]);
         }
 
         $this->info("Processed {$dueReminders->count()} reminder(s).");

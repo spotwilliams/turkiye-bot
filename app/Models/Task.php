@@ -13,7 +13,8 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $message_id
- * @property int $telegram_chat_id
+ * @property int|null $telegram_chat_id
+ * @property int|null $created_by
  * @property string $description
  * @property string $category
  * @property Carbon|null $due_date
@@ -32,6 +33,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'message_id',
     'telegram_chat_id',
+    'created_by',
     'description',
     'category',
     'due_date',

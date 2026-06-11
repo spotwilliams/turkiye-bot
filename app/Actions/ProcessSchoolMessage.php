@@ -16,11 +16,15 @@ class ProcessSchoolMessage
      * Message row in place (it was created by the webhook in
      * "processing" state). Returns the hydrated Message.
      */
-    public function execute(Message $message): Message
+    public function __construct(
+        private GenerateTaskReminders $generateReminders = new GenerateTaskReminders,
+    ) {}
+
+    public function execute(Message $message, ?int $createdBy = null): Message
     {
         $data = $this->callAgent($message->original_text);
 
-        return DB::transaction(function () use ($data, $message): Message {
+        return DB::transaction(function () use ($data, $message, $createdBy): Message {
             $message->update([
                 'translation_en' => $data->translation_en,
                 'translation_es' => $data->translation_es,
@@ -33,6 +37,7 @@ class ProcessSchoolMessage
                 /** @var Task $task */
                 $task = $message->tasks()->create([
                     'telegram_chat_id' => $message->telegram_chat_id,
+                    'created_by' => $createdBy,
                     'description' => $taskData->description,
                     'category' => $taskData->category,
                     'due_date' => $taskData->due_date,
@@ -41,12 +46,8 @@ class ProcessSchoolMessage
                     'currency' => $taskData->currency ?? 'TRY',
                 ]);
 
-                foreach ($taskData->reminders as $reminderData) {
-                    $task->reminders()->create([
-                        'scheduled_at' => $reminderData->scheduled_at,
-                        'message' => $reminderData->message,
-                        'type' => $reminderData->type,
-                    ]);
+                foreach ($this->generateReminders->for($task) as $reminder) {
+                    $task->reminders()->create($reminder);
                 }
             }
 

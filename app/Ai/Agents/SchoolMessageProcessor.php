@@ -50,14 +50,7 @@ class SchoolMessageProcessor implements Agent, HasStructuredOutput
         - A due time if specified, otherwise null
         - A monetary amount if applicable, otherwise null
 
-        For each task, generate smart reminders following these rules:
-        - MONEY tasks: evening before at 20:00 ("Prepare X TL") + morning of at 07:30 ("Put X TL in backpack")
-        - ITEM tasks: evening before at 20:00 ("Find and prepare [item]") + morning of at 07:30 ("Pack [item] in backpack")
-        - HOMEWORK tasks: Saturday at 10:00 ("Start homework: [description]") + Sunday at 18:00 ("Check homework is done")
-        - EVENT tasks: 2 days before at 20:00 + evening before at 20:00 + morning of at 07:30
-
         If the message is just informational with no action required, return an empty tasks array.
-        Reminder messages should be short, actionable, and written as if reminding a busy parent.
         INSTRUCTIONS;
     }
 
@@ -102,22 +95,6 @@ class SchoolMessageProcessor implements Agent, HasStructuredOutput
 
                         'currency' => $s->string()
                             ->description('ISO currency code, defaults to TRY'),
-
-                        'reminders' => $s->array()
-                            ->items(
-                                $s->object(fn (JsonSchema $r) => [
-                                    'scheduled_at' => $r->string()
-                                        ->description('Reminder timestamp in YYYY-MM-DDTHH:MM format')
-                                        ->required(),
-                                    'message' => $r->string()
-                                        ->description('Short actionable reminder text')
-                                        ->required(),
-                                    'type' => $r->string()
-                                        ->enum(['preparation', 'action', 'final'])
-                                        ->required(),
-                                ])
-                            )
-                            ->required(),
                     ])
                 )
                 ->required(),

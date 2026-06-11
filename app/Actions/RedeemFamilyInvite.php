@@ -2,17 +2,10 @@
 
 namespace App\Actions;
 
+use App\Actions\Dto\RedemptionResult;
 use App\Models\FamilyInvite;
 use App\Models\FamilyMember;
 use Illuminate\Support\Facades\DB;
-
-class RedemptionResult
-{
-    public function __construct(
-        public readonly string $status,
-        public readonly ?FamilyMember $familyMember = null,
-    ) {}
-}
 
 class RedeemFamilyInvite
 {
