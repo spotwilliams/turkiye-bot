@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Form, Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import WebMessagesController from '@/actions/App/Http/Controllers/Web/WebMessagesController';
 import ActionPlaceholder from '@/components/Admin/ActionPlaceholder.vue';
 import AdminBreadcrumb from '@/components/Admin/AdminBreadcrumb.vue';
 import ContentCard from '@/components/Admin/ContentCard.vue';
@@ -55,9 +56,27 @@ const hasTasks = computed(() => props.message.tasks.length > 0);
             v-if="message.status === 'failed'"
             class="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
         >
-            <div class="font-semibold">Processing failed</div>
-            <div class="mt-1 font-mono whitespace-pre-wrap break-all">{{ message.failure_reason }}</div>
-            <div class="mt-1 text-xs text-red-600">{{ fmtIstanbul(message.failed_at) }}</div>
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <div class="font-semibold">Processing failed</div>
+                    <div class="mt-1 font-mono whitespace-pre-wrap break-all">{{ message.failure_reason }}</div>
+                    <div class="mt-1 text-xs text-red-600">{{ fmtIstanbul(message.failed_at) }}</div>
+                </div>
+                <Form
+                    v-bind="WebMessagesController.retry.form(message.id)"
+                    :options="{ preserveScroll: true }"
+                    v-slot="{ processing }"
+                    class="shrink-0"
+                >
+                    <button
+                        type="submit"
+                        :disabled="processing"
+                        class="rounded-md border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                    >
+                        ↻ Retry processing
+                    </button>
+                </Form>
+            </div>
         </div>
         <div class="flex gap-6 items-start flex-wrap">
             <div class="flex-1 min-w-0 space-y-4" style="min-width: 320px;">

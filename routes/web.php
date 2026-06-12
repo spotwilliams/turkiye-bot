@@ -18,6 +18,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'Dashboard')->name('dashboard');
 
     Route::post('messages', [WebMessagesController::class, 'store'])->name('web.messages.store');
+    Route::post('messages/{message}/retry', [WebMessagesController::class, 'retry'])->name('web.messages.retry');
 
     Route::patch('tasks/{task}/complete', [WebTasksController::class, 'complete'])->name('web.tasks.complete');
     Route::patch('tasks/{task}/reschedule', [WebTasksController::class, 'reschedule'])->name('web.tasks.reschedule');
