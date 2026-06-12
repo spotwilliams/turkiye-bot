@@ -85,7 +85,6 @@ const hasTasks = computed(() => props.message.tasks.length > 0);
                 <PendingCard v-else lang="🇬🇧 English" />
                 <ContentCard v-if="message.spanish" lang="🇪🇸 Spanish" :text="message.spanish" />
                 <PendingCard v-else lang="🇪🇸 Spanish" />
-                <SummaryCallout v-if="message.summary" :text="message.summary" />
             </div>
 
             <div class="w-80 shrink-0 space-y-3" style="min-width: 280px;">
@@ -106,6 +105,8 @@ const hasTasks = computed(() => props.message.tasks.length > 0);
                     title="No tasks extracted"
                     description="The AI agent found no actionable tasks in this message."
                 />
+
+                <SummaryCallout v-if="message.summary" :text="message.summary" class="mt-4" />
             </div>
         </div>
     </div>

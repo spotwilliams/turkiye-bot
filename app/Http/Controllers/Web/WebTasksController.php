@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Task;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class WebTasksController extends Controller
 {
@@ -17,7 +18,7 @@ class WebTasksController extends Controller
     {
         $action->complete($task);
 
-        return back()->with('status', 'Task marked done.');
+        return $this->toastBack('Task marked done.');
     }
 
     public function reschedule(Request $request, Task $task, RescheduleTask $action): RedirectResponse
@@ -29,7 +30,7 @@ class WebTasksController extends Controller
 
         $action->execute($task, $validated['due_date'], $validated['due_time'] ?? null);
 
-        return back()->with('status', 'Task rescheduled.');
+        return $this->toastBack('Task rescheduled.');
     }
 
     public function update(Request $request, Task $task, EditTask $action): RedirectResponse
@@ -46,13 +47,20 @@ class WebTasksController extends Controller
 
         $action->execute($task, $validated);
 
-        return back()->with('status', 'Task updated.');
+        return $this->toastBack('Task updated.');
     }
 
     public function destroy(Task $task, CancelTask $action): RedirectResponse
     {
         $action->execute($task);
 
-        return back()->with('status', 'Task deleted.');
+        return $this->toastBack('Task deleted.');
+    }
+
+    private function toastBack(string $message): RedirectResponse
+    {
+        Inertia::flash('toast', ['type' => 'success', 'message' => $message]);
+
+        return back();
     }
 }

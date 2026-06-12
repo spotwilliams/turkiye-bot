@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
-import ActionPlaceholder from '@/components/Admin/ActionPlaceholder.vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import AdminBreadcrumb from '@/components/Admin/AdminBreadcrumb.vue';
 import EmptyState from '@/components/Admin/EmptyState.vue';
 import MessageRow from '@/components/Admin/MessageRow.vue';
 import Pagination from '@/components/Admin/Pagination.vue';
+import PasteMessageForm from '@/components/Admin/PasteMessageForm.vue';
 import admin from '@/routes/admin';
 import type { AdminMessageRow, AdminMessageFilters, Paginator } from '@/types/admin';
 
@@ -15,7 +15,7 @@ const props = defineProps<{
 }>();
 
 const headers = ['ID', 'Chat ID', 'Summary', 'Tasks', 'Processed', 'Created'];
-const isEmpty = props.messages.data.length === 0;
+const isEmpty = computed(() => props.messages.data.length === 0);
 const chatId = ref(props.filters?.chat_id ?? '');
 
 watch(
@@ -24,6 +24,32 @@ watch(
         chatId.value = val;
     },
 );
+
+// Surface async processing: while any pasted message is still pending, poll so
+// the row flips to processed/failed without a manual refresh.
+const hasPending = computed(() => props.messages.data.some((m) => m.status === 'pending'));
+let pollTimer: ReturnType<typeof setInterval> | undefined;
+
+watch(
+    hasPending,
+    (pending) => {
+        if (pending && !pollTimer) {
+            pollTimer = setInterval(() => {
+                router.reload({ only: ['messages'] });
+            }, 3000);
+        } else if (!pending && pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = undefined;
+        }
+    },
+    { immediate: true },
+);
+
+onBeforeUnmount(() => {
+    if (pollTimer) {
+        clearInterval(pollTimer);
+    }
+});
 
 const processedOpts = [
     { value: '', label: 'All' },
@@ -52,7 +78,6 @@ function applyFilter(field: 'chat_id' | 'processed', value: string): void {
                 <span class="text-xs text-zinc-400 font-mono">
                     {{ messages.total === 0 ? '0 messages' : `${messages.total} total` }}
                 </span>
-                <ActionPlaceholder label="Actions" />
             </div>
         </div>
         <div class="flex items-center gap-3 mt-3 flex-wrap">
@@ -81,6 +106,8 @@ function applyFilter(field: 'chat_id' | 'processed', value: string): void {
     </div>
 
     <div class="flex-1 px-8 py-6 overflow-y-auto">
+        <PasteMessageForm />
+
         <div v-if="isEmpty" class="bg-white rounded-xl border border-zinc-200">
             <EmptyState
                 icon="📨"
