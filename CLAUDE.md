@@ -2,8 +2,93 @@
 
 ## What This Project Does
 
-Parents receive school messages in Turkish. They paste the message into a Telegram bot.
-The system translates, summarizes, extracts tasks, and sends daily reminders so nothing gets forgotten.
+Parents receive school messages in Turkish. They paste the message into a Telegram bot
+**or into the web admin panel**. The system translates, summarizes, extracts tasks, and
+sends daily reminders so nothing gets forgotten.
+
+---
+
+## Web Action Surface (current architecture — `feature/admin-full-actionable`)
+
+> This section reflects the **current** code and supersedes any older statements below
+> that describe a Telegram-only flow or AI-generated reminders. Full PRDs live in
+> `docs/features/web-action-surface/` (00-overview + 01–05).
+
+The app now has **two co-equal write surfaces** over a shared Actions layer: the Telegram
+bot **and** the web admin panel. Both call the same Action classes, so behaviour is
+identical regardless of entry point. Telegram is fully built but **not yet wired to live
+traffic**; the web surface is the active path.
+
+**Binding architectural decisions:**
+
+1. **Flat shared workspace.** Every logged-in `User` sees and edits *all* messages, tasks,
+   and reminders. No per-user scoping, no `member_id`.
+2. **`users` and `family_members` are decoupled.** `users` (Fortify) = web identity.
+   `family_members` = Telegram delivery registry only (`telegram_chat_id`, `telegram_user_id`).
+   No foreign key links them.
+3. **`telegram_*` columns are nullable**, never dropped. Web-origin rows leave them null.
+   Migration: `2026_06_10_140152_add_web_origin_columns`.
+4. **PHP owns reminder generation.** The AI agent **no longer emits reminders**. The
+   deterministic `App\Actions\GenerateTaskReminders` module encodes the category timing
+   rules (see Reminder Strategy table) and runs at ingest *and* on every reschedule/edit.
+   Regeneration wipes **unsent** reminders and **keeps sent** ones as history.
+5. **Reminder delivery is channel-resolved.** `App\Services\Reminders\ReminderNotifier`
+   picks the channel per task: `telegram_chat_id` present → `TelegramChannel`; else
+   `tasks.created_by` present → `MailChannel` (queued email to that user). `tasks.created_by`
+   is a nullable FK → `users` for **delivery attribution only**, not scoping.
+6. **Web access is closed.** Public Fortify registration is **disabled**
+   (`config/fortify.php`). Accounts are seeded via the `user:create` artisan command
+   (the only way to mint web logins; idempotent on duplicate email).
+7. **Future target is Jetstream Teams** — do **not** pre-build toward it. When multi-family
+   grouping is needed, Teams replaces `family_members`/`family_invites` and rows re-key to
+   `team_id`.
+
+**Two accepted asymmetries:** viewing is shared but nudging is per-creator (an email reminder
+goes only to the task's `created_by`); two reminder origins (Telegram chat_id, web created_by)
+flow through one generator so patterns stay identical.
+
+### Actions layer (`app/Actions/` — replaces the old `Services/` plan)
+
+Surface-agnostic, callable from web controllers, the Telegram controller, and tests:
+
+| Action | Purpose |
+|--------|---------|
+| `ProcessSchoolMessage` | Ingest: prompt agent, persist message + tasks, generate reminders |
+| `GenerateTaskReminders` | Deterministic reminder builder (single source of timing rules) |
+| `RegenerateTaskReminders` | Wipe unsent + regenerate (used by reschedule/edit) |
+| `CompleteTask` | Mark done; idempotent |
+| `RescheduleTask` | New **already-resolved** due date → regenerate reminders (no NL parsing) |
+| `EditTask` | Edit fields; regenerate reminders only if due date/category changed |
+| `CancelTask` | Soft delete: `status = cancelled`, wipe unsent reminders, keep row |
+| `SnoozeReminder` | Move one reminder's `scheduled_at`; reset `sent` if already sent |
+| `RedeemFamilyInvite` | Telegram family onboarding |
+
+DTOs live in `app/Actions/Dto/` (`CompleteTaskResult`, `RedemptionResult`).
+
+### Web routes (`routes/web.php`, behind `auth` + `verified`)
+
+```
+POST   messages                      web.messages.store     (dispatch ProcessSchoolMessage job)
+POST   messages/{message}/retry      web.messages.retry     (retry a failed message)
+PATCH  tasks/{task}/complete         web.tasks.complete
+PATCH  tasks/{task}/reschedule       web.tasks.reschedule
+PATCH  tasks/{task}                  web.tasks.update       (EditTask)
+DELETE tasks/{task}                  web.tasks.destroy      (CancelTask — soft)
+PATCH  reminders/{reminder}/snooze   web.reminders.snooze
+```
+
+Controllers: `App\Http\Controllers\Web\{WebMessagesController, WebTasksController,
+WebRemindersController}` — thin: resolve input → call Action → Inertia response. The
+read-only `Admin/*` controllers remain under the `admin.` prefix. Frontend uses Wayfinder
+route helpers, no hardcoded URLs. The paste form stamps `created_by` = current user.
+
+### Delivery (`app/Services/Reminders/` + `app/Mail/`)
+
+`ReminderNotifier` + `ReminderChannel` interface with `TelegramChannel` (wraps
+`TelegramService`) and `MailChannel`. `ProcessDueReminders` and `SendDailyDigest` route
+through the notifier instead of assuming Telegram. Mailables: `TaskReminderMail`,
+`DailyDigestMail` (queued; views in `resources/views/mail/`). Digest recipients = distinct
+`family_members` chat ids (Telegram) **and** distinct `created_by` users (email).
 
 ---
 
@@ -390,6 +475,12 @@ resources/
 
 This is the heart of the app. A dedicated Agent class using Laravel's first-party AI SDK
 with structured output so responses are always predictable and parseable.
+
+> **OUTDATED CODE BELOW.** The agent **no longer emits `reminders`** — that schema branch
+> and the reminder-timing instructions were removed; PHP's `GenerateTaskReminders` owns
+> reminders now (see Web Action Surface above). The agent's job is now only:
+> translate + summarize + extract tasks (description/category/due_date/due_time/amount/currency).
+> The live class is `app/Ai/Agents/SchoolMessageProcessor.php`; treat it as source of truth.
 
 ### app/Ai/Agents/SchoolMessageProcessor.php
 
@@ -1216,6 +1307,9 @@ return [
 ---
 
 ## Reminder Strategy
+
+> These rules are now encoded deterministically in `App\Actions\GenerateTaskReminders`
+> (not the AI agent). Unit tests: `tests/Unit/GenerateTaskRemindersTest.php`.
 
 ```
 ┌──────────┬──────────────────────────────────────────────────────┐
