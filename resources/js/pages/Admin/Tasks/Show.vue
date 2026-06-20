@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import ActionPlaceholder from '@/components/Admin/ActionPlaceholder.vue';
 import AdminBreadcrumb from '@/components/Admin/AdminBreadcrumb.vue';
 import AssignedBadge from '@/components/Admin/AssignedBadge.vue';
 import CategoryBadge from '@/components/Admin/CategoryBadge.vue';
@@ -9,6 +8,7 @@ import EmptyState from '@/components/Admin/EmptyState.vue';
 import MetaField from '@/components/Admin/MetaField.vue';
 import ReminderItem from '@/components/Admin/ReminderItem.vue';
 import StatusPill from '@/components/Admin/StatusPill.vue';
+import TaskWriteActions from '@/components/Admin/TaskWriteActions.vue';
 import { fmtDate, fmtIstanbul } from '@/composables/useIstanbulDate';
 import admin from '@/routes/admin';
 import type { AdminTaskDetail } from '@/types/admin';
@@ -40,7 +40,7 @@ const hasReminders = computed(() => props.task.reminders.length > 0);
         />
         <div class="flex items-center justify-between mt-1">
             <h1 class="text-lg font-semibold text-zinc-900">{{ task.ref }}</h1>
-            <ActionPlaceholder label="Actions" />
+            <TaskWriteActions :task="task" />
         </div>
         <div class="flex flex-wrap items-center gap-x-6 gap-y-1 mt-3">
             <MetaField label="Chat ID" :value="task.telegram_chat_id" mono />
@@ -95,7 +95,7 @@ const hasReminders = computed(() => props.task.reminders.length > 0);
                     </span>
                 </div>
                 <div v-if="hasReminders" class="bg-white rounded-xl border border-zinc-200 divide-y divide-zinc-100 overflow-hidden">
-                    <ReminderItem v-for="r in task.reminders" :key="r.id" :reminder="r" />
+                    <ReminderItem v-for="r in task.reminders" :key="r.id" :reminder="r" editable />
                 </div>
                 <EmptyState
                     v-else

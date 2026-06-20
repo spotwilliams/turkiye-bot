@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -66,6 +67,30 @@ test('telegram:set-webhook --ngrok fails when no HTTPS tunnel is found', functio
     ]);
 
     $this->artisan('telegram:set-webhook', ['--ngrok' => true])->assertFailed();
+
+    Http::assertNotSent(fn ($req) => str_contains($req->url(), 'api.telegram.org'));
+});
+
+test('telegram:set-webhook --ngrok fails when the ngrok agent is unreachable', function () {
+    Http::fake([
+        'localhost:4040/*' => fn () => throw new ConnectionException('connection refused'),
+    ]);
+
+    $this->artisan('telegram:set-webhook', ['--ngrok' => true])
+        ->assertFailed()
+        ->expectsOutputToContain('Could not reach ngrok');
+
+    Http::assertNotSent(fn ($req) => str_contains($req->url(), 'api.telegram.org'));
+});
+
+test('telegram:set-webhook --ngrok fails when the ngrok local API returns an error', function () {
+    Http::fake([
+        'localhost:4040/api/tunnels' => Http::response('boom', 500),
+    ]);
+
+    $this->artisan('telegram:set-webhook', ['--ngrok' => true])
+        ->assertFailed()
+        ->expectsOutputToContain('ngrok local API returned an error');
 
     Http::assertNotSent(fn ($req) => str_contains($req->url(), 'api.telegram.org'));
 });

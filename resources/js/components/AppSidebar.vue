@@ -6,6 +6,7 @@ import admin from '@/routes/admin';
 interface NavItem {
     id: string;
     label: string;
+    icon: string;
     href?: string;
     enabled: boolean;
 }
@@ -13,10 +14,10 @@ interface NavItem {
 const page = usePage();
 
 const navItems = computed<NavItem[]>(() => [
-    { id: 'messages', label: 'Messages', href: admin.messages.index().url, enabled: true },
-    { id: 'tasks', label: 'Tasks', href: admin.tasks.index().url, enabled: true },
-    { id: 'reminders', label: 'Reminders', href: admin.reminders.index().url, enabled: true },
-    { id: 'families', label: 'Family Members', href: admin.familyMembers.index().url, enabled: true },
+    { id: 'messages', label: 'Messages', icon: '📨', href: admin.messages.index().url, enabled: true },
+    { id: 'tasks', label: 'Tasks', icon: '✅', href: admin.tasks.index().url, enabled: true },
+    { id: 'reminders', label: 'Reminders', icon: '🔔', href: admin.reminders.index().url, enabled: true },
+    { id: 'families', label: 'Family Members', icon: '👨‍👩‍👧', href: admin.familyMembers.index().url, enabled: true },
 ]);
 
 function isActive(item: NavItem): boolean {
@@ -58,14 +59,14 @@ return false;
                             : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-800',
                     ]"
                 >
-                    <span class="w-[15px] h-[15px] inline-block rounded-sm border border-current opacity-50 shrink-0"></span>
+                    <span class="text-[15px] leading-none shrink-0">{{ item.icon }}</span>
                     <span>{{ item.label }}</span>
                 </Link>
                 <div
                     v-else
                     class="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm text-zinc-300 cursor-not-allowed"
                 >
-                    <span class="w-[15px] h-[15px] inline-block rounded-sm border border-current opacity-50 shrink-0"></span>
+                    <span class="text-[15px] leading-none shrink-0 grayscale opacity-50">{{ item.icon }}</span>
                     <span>{{ item.label }}</span>
                     <span class="ml-auto text-[9px] uppercase tracking-widest text-zinc-300 font-medium">Soon</span>
                 </div>

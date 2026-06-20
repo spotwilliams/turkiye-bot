@@ -2,8 +2,93 @@
 
 ## What This Project Does
 
-Parents receive school messages in Turkish. They paste the message into a Telegram bot.
-The system translates, summarizes, extracts tasks, and sends daily reminders so nothing gets forgotten.
+Parents receive school messages in Turkish. They paste the message into a Telegram bot
+**or into the web admin panel**. The system translates, summarizes, extracts tasks, and
+sends daily reminders so nothing gets forgotten.
+
+---
+
+## Web Action Surface (current architecture — `feature/admin-full-actionable`)
+
+> This section reflects the **current** code and supersedes any older statements below
+> that describe a Telegram-only flow or AI-generated reminders. Full PRDs live in
+> `docs/features/web-action-surface/` (00-overview + 01–05).
+
+The app now has **two co-equal write surfaces** over a shared Actions layer: the Telegram
+bot **and** the web admin panel. Both call the same Action classes, so behaviour is
+identical regardless of entry point. Telegram is fully built but **not yet wired to live
+traffic**; the web surface is the active path.
+
+**Binding architectural decisions:**
+
+1. **Flat shared workspace.** Every logged-in `User` sees and edits *all* messages, tasks,
+   and reminders. No per-user scoping, no `member_id`.
+2. **`users` and `family_members` are decoupled.** `users` (Fortify) = web identity.
+   `family_members` = Telegram delivery registry only (`telegram_chat_id`, `telegram_user_id`).
+   No foreign key links them.
+3. **`telegram_*` columns are nullable**, never dropped. Web-origin rows leave them null.
+   Migration: `2026_06_10_140152_add_web_origin_columns`.
+4. **PHP owns reminder generation.** The AI agent **no longer emits reminders**. The
+   deterministic `App\Actions\GenerateTaskReminders` module encodes the category timing
+   rules (see Reminder Strategy table) and runs at ingest *and* on every reschedule/edit.
+   Regeneration wipes **unsent** reminders and **keeps sent** ones as history.
+5. **Reminder delivery is channel-resolved.** `App\Services\Reminders\ReminderNotifier`
+   picks the channel per task: `telegram_chat_id` present → `TelegramChannel`; else
+   `tasks.created_by` present → `MailChannel` (queued email to that user). `tasks.created_by`
+   is a nullable FK → `users` for **delivery attribution only**, not scoping.
+6. **Web access is closed.** Public Fortify registration is **disabled**
+   (`config/fortify.php`). Accounts are seeded via the `user:create` artisan command
+   (the only way to mint web logins; idempotent on duplicate email).
+7. **Future target is Jetstream Teams** — do **not** pre-build toward it. When multi-family
+   grouping is needed, Teams replaces `family_members`/`family_invites` and rows re-key to
+   `team_id`.
+
+**Two accepted asymmetries:** viewing is shared but nudging is per-creator (an email reminder
+goes only to the task's `created_by`); two reminder origins (Telegram chat_id, web created_by)
+flow through one generator so patterns stay identical.
+
+### Actions layer (`app/Actions/` — replaces the old `Services/` plan)
+
+Surface-agnostic, callable from web controllers, the Telegram controller, and tests:
+
+| Action | Purpose |
+|--------|---------|
+| `ProcessSchoolMessage` | Ingest: prompt agent, persist message + tasks, generate reminders |
+| `GenerateTaskReminders` | Deterministic reminder builder (single source of timing rules) |
+| `RegenerateTaskReminders` | Wipe unsent + regenerate (used by reschedule/edit) |
+| `CompleteTask` | Mark done; idempotent |
+| `RescheduleTask` | New **already-resolved** due date → regenerate reminders (no NL parsing) |
+| `EditTask` | Edit fields; regenerate reminders only if due date/category changed |
+| `CancelTask` | Soft delete: `status = cancelled`, wipe unsent reminders, keep row |
+| `SnoozeReminder` | Move one reminder's `scheduled_at`; reset `sent` if already sent |
+| `RedeemFamilyInvite` | Telegram family onboarding |
+
+DTOs live in `app/Actions/Dto/` (`CompleteTaskResult`, `RedemptionResult`).
+
+### Web routes (`routes/web.php`, behind `auth` + `verified`)
+
+```
+POST   messages                      web.messages.store     (dispatch ProcessSchoolMessage job)
+POST   messages/{message}/retry      web.messages.retry     (retry a failed message)
+PATCH  tasks/{task}/complete         web.tasks.complete
+PATCH  tasks/{task}/reschedule       web.tasks.reschedule
+PATCH  tasks/{task}                  web.tasks.update       (EditTask)
+DELETE tasks/{task}                  web.tasks.destroy      (CancelTask — soft)
+PATCH  reminders/{reminder}/snooze   web.reminders.snooze
+```
+
+Controllers: `App\Http\Controllers\Web\{WebMessagesController, WebTasksController,
+WebRemindersController}` — thin: resolve input → call Action → Inertia response. The
+read-only `Admin/*` controllers remain under the `admin.` prefix. Frontend uses Wayfinder
+route helpers, no hardcoded URLs. The paste form stamps `created_by` = current user.
+
+### Delivery (`app/Services/Reminders/` + `app/Mail/`)
+
+`ReminderNotifier` + `ReminderChannel` interface with `TelegramChannel` (wraps
+`TelegramService`) and `MailChannel`. `ProcessDueReminders` and `SendDailyDigest` route
+through the notifier instead of assuming Telegram. Mailables: `TaskReminderMail`,
+`DailyDigestMail` (queued; views in `resources/views/mail/`). Digest recipients = distinct
+`family_members` chat ids (Telegram) **and** distinct `created_by` users (email).
 
 ---
 
@@ -390,6 +475,12 @@ resources/
 
 This is the heart of the app. A dedicated Agent class using Laravel's first-party AI SDK
 with structured output so responses are always predictable and parseable.
+
+> **OUTDATED CODE BELOW.** The agent **no longer emits `reminders`** — that schema branch
+> and the reminder-timing instructions were removed; PHP's `GenerateTaskReminders` owns
+> reminders now (see Web Action Surface above). The agent's job is now only:
+> translate + summarize + extract tasks (description/category/due_date/due_time/amount/currency).
+> The live class is `app/Ai/Agents/SchoolMessageProcessor.php`; treat it as source of truth.
 
 ### app/Ai/Agents/SchoolMessageProcessor.php
 
@@ -1217,6 +1308,9 @@ return [
 
 ## Reminder Strategy
 
+> These rules are now encoded deterministically in `App\Actions\GenerateTaskReminders`
+> (not the AI agent). Unit tests: `tests/Unit/GenerateTaskRemindersTest.php`.
+
 ```
 ┌──────────┬──────────────────────────────────────────────────────┐
 │ Category │ Reminder Schedule                                    │
@@ -1392,15 +1486,7 @@ This application is a Laravel application and its main Laravel ecosystems packag
 
 ## Skills Activation
 
-This project has domain-specific skills available. You MUST activate the relevant skill whenever you work in that domain—don't wait until you're stuck.
-
-- `ai-sdk-development` — TRIGGER when working with ai-sdk which is Laravel official first-party AI SDK. Activate when building, editing AI agents, chatbots, text generation, image generation, audio/TTS, transcription/STT, embeddings, RAG, vector stores, reranking, structured output, streaming, conversation memory, tools, queueing, broadcasting, and provider failover across OpenAI, Anthropic, Gemini, Azure, Groq, xAI, DeepSeek, Mistral, Ollama, ElevenLabs, Cohere, Jina, and VoyageAI. Invoke when the user references ai-sdk, the `Laravel\Ai\` namespace, or this project's AI features — not for other AI packages used directly.
-- `fortify-development` — ACTIVATE when the user works on authentication in Laravel. This includes login, registration, password reset, email verification, two-factor authentication (2FA/TOTP/QR codes/recovery codes), profile updates, password confirmation, or any auth-related routes and controllers. Activate when the user mentions Fortify, auth, authentication, login, register, signup, forgot password, verify email, 2FA, or references app/Actions/Fortify/, CreateNewUser, UpdateUserProfileInformation, FortifyServiceProvider, config/fortify.php, or auth guards. Fortify is the frontend-agnostic authentication backend for Laravel that registers all auth routes and controllers. Also activate when building SPA or headless authentication, customizing login redirects, overriding response contracts like LoginResponse, or configuring login throttling. Do NOT activate for Laravel Passport (OAuth2 API tokens), Socialite (OAuth social login), or non-auth Laravel features.
-- `laravel-best-practices` — Apply this skill whenever writing, reviewing, or refactoring Laravel PHP code. This includes creating or modifying controllers, models, migrations, form requests, policies, jobs, scheduled commands, service classes, and Eloquent queries. Triggers for N+1 and query performance issues, caching strategies, authorization and security patterns, validation, error handling, queue and job configuration, route definitions, and architectural decisions. Also use for Laravel code reviews and refactoring existing Laravel code to follow best practices. Covers any task involving Laravel backend PHP code patterns.
-- `wayfinder-development` — Use this skill for Laravel Wayfinder which auto-generates typed functions for Laravel controllers and routes. ALWAYS use this skill when frontend code needs to call backend routes or controller actions. Trigger when: connecting any React/Vue/Svelte/Inertia frontend to Laravel controllers, routes, building end-to-end features with both frontend and backend, wiring up forms or links to backend endpoints, fixing route-related TypeScript errors, importing from @/actions or @/routes, or running wayfinder:generate. Use Wayfinder route functions instead of hardcoded URLs. Covers: wayfinder() vite plugin, .url()/.get()/.post()/.form(), query params, route model binding, tree-shaking. Do not use for backend-only task
-- `pest-testing` — Use this skill for Pest PHP testing in Laravel projects only. Trigger whenever any test is being written, edited, fixed, or refactored — including fixing tests that broke after a code change, adding assertions, converting PHPUnit to Pest, adding datasets, and TDD workflows. Always activate when the user asks how to write something in Pest, mentions test files or directories (tests/Feature, tests/Unit, tests/Browser), or needs browser testing, smoke testing multiple pages for JS errors, or architecture tests. Covers: test()/it()/expect() syntax, datasets, mocking, browser testing (visit/click/fill), smoke testing, arch(), Livewire component tests, RefreshDatabase, and all Pest 4 features. Do not use for factories, seeders, migrations, controllers, models, or non-test PHP code.
-- `inertia-vue-development` — Develops Inertia.js v3 Vue client-side applications. Activates when creating Vue pages, forms, or navigation; using <Link>, <Form>, useForm, useHttp, setLayoutProps, or router; working with deferred props, prefetching, optimistic updates, instant visits, or polling; or when user mentions Vue with Inertia, Vue pages, Vue forms, or Vue navigation.
-- `tailwindcss-development` — Always invoke when the user's message includes 'tailwind' in any form. Also invoke for: building responsive grid layouts (multi-column card grids, product grids), flex/grid page structures (dashboards with sidebars, fixed topbars, mobile-toggle navs), styling UI components (cards, tables, navbars, pricing sections, forms, inputs, badges), adding dark mode variants, fixing spacing or typography, and Tailwind v3/v4 work. The core use case: writing or fixing Tailwind utility classes in HTML templates (Blade, JSX, Vue). Skip for backend PHP logic, database queries, API routes, JavaScript with no HTML/CSS component, CSS file audits, build tool configuration, and vanilla CSS.
+This project has domain-specific skills available in `**/skills/**`. You MUST activate the relevant skill whenever you work in that domain—don't wait until you're stuck.
 
 ## Conventions
 
@@ -1460,7 +1546,6 @@ This project has domain-specific skills available. You MUST activate the relevan
 - Run Artisan commands directly via the command line (e.g., `php artisan route:list`). Use `php artisan list` to discover available commands and `php artisan [command] --help` to check parameters.
 - Inspect routes with `php artisan route:list`. Filter with: `--method=GET`, `--name=users`, `--path=api`, `--except-vendor`, `--only-vendor`.
 - Read configuration values using dot notation: `php artisan config:show app.name`, `php artisan config:show database.default`. Or read config files directly from the `config/` directory.
-- To check environment variables, read the `.env` file directly.
 
 ## Tinker
 
@@ -1563,6 +1648,7 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 ## Pest
 
 - This project uses Pest for testing. Create tests: `php artisan make:test --pest {name}`.
+- The `{name}` argument should not include the test suite directory. Use `php artisan make:test --pest SomeFeatureTest` instead of `php artisan make:test --pest Feature/SomeFeatureTest`.
 - Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
 - Do NOT delete tests without approval.
 

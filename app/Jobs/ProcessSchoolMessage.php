@@ -17,13 +17,18 @@ class ProcessSchoolMessage implements ShouldQueue
 
     public function __construct(
         public Message $message,
+        public ?int $createdBy = null,
     ) {}
 
     public function handle(ProcessSchoolMessageAction $action, TelegramService $telegram): void
     {
-        $message = $action->execute($this->message);
+        $message = $action->execute($this->message, $this->createdBy);
 
-        $telegram->sendProcessedConfirmation((int) $message->telegram_chat_id, $message, $message->tasks->count());
+        // Web-origin messages have no chat to reply to; their confirmation is
+        // the dashboard reflecting the processed state.
+        if ($message->telegram_chat_id !== null) {
+            $telegram->sendProcessedConfirmation((int) $message->telegram_chat_id, $message, $message->tasks->count());
+        }
     }
 
     public function failed(Throwable $exception): void
@@ -34,10 +39,12 @@ class ProcessSchoolMessage implements ShouldQueue
             'failure_reason' => substr($exception->getMessage(), 0, 1000),
         ]);
 
-        app(TelegramService::class)->sendMessage(
-            (int) $this->message->telegram_chat_id,
-            "Couldn't process this message — please try again later."
-        );
+        if ($this->message->telegram_chat_id !== null) {
+            app(TelegramService::class)->sendMessage(
+                (int) $this->message->telegram_chat_id,
+                "Couldn't process this message — please try again later."
+            );
+        }
 
         report($exception);
     }

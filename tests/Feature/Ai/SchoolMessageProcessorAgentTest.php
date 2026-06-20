@@ -10,7 +10,10 @@ test('agent instructions embed current date and day of week', function () {
 
     expect($instructions)->toContain('2026-04-23')
         ->and($instructions)->toContain('Thursday')
-        ->and($instructions)->toContain('school message processing assistant');
+        ->and($instructions)->toContain('school message processing assistant')
+        // Reminder generation moved to PHP (GenerateTaskReminders); the agent no
+        // longer reasons about reminder timing.
+        ->and($instructions)->not->toContain('reminder');
 });
 
 test('agent defaults current date and day of week to now', function () {
@@ -33,10 +36,6 @@ test('agent returns structured output matching schema', function () {
                 'due_time' => null,
                 'amount' => 350,
                 'currency' => 'TRY',
-                'reminders' => [
-                    ['scheduled_at' => '2026-01-13T20:00', 'message' => 'Prepare 350 TL', 'type' => 'preparation'],
-                    ['scheduled_at' => '2026-01-14T07:30', 'message' => 'Put 350 TL in backpack', 'type' => 'action'],
-                ],
             ]],
         ],
     ]);
@@ -46,7 +45,6 @@ test('agent returns structured output matching schema', function () {
     expect($response['tasks'])->toHaveCount(1)
         ->and($response['tasks'][0]['category'])->toBe('money')
         ->and($response['tasks'][0]['amount'])->toBe(350)
-        ->and($response['tasks'][0]['reminders'])->toHaveCount(2)
         ->and($response['translation_en'])->toContain('350 TL')
         ->and($response['translation_es'])->toContain('350 TL');
 
